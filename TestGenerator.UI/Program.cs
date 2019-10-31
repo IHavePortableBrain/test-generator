@@ -17,8 +17,6 @@ namespace TestGenerator.UI
             //foreACH
             conveyor.Post(@"D:\! 5 semester\SPP\test-generator\Test.Files\new.txt");
             conveyor.Post(@"D:\! 5 semester\SPP\test-generator\Test.Files\new.txt");
-            conveyor.Post(@"D:\! 5 semester\SPP\test-generator\Test.Files\new.txt");
-            conveyor.Post(@"D:\! 5 semester\SPP\test-generator\Test.Files\new.txt");
             //wait
             Console.ReadKey();
         }

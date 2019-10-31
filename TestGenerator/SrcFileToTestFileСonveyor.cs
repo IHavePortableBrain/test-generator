@@ -77,7 +77,7 @@ namespace TestGenerator
             return await Task.Run(async () =>
             {
                 TestClassFromFileContentParser cp = new TestClassFromFileContentParser();
-                return await TestClassFromFileContentParser.Parse(testableFileContent);
+                return await cp.GetTestClassFrom(testableFileContent);
             });
         }
 
@@ -94,12 +94,14 @@ namespace TestGenerator
             } while (File.Exists(savePath));
 
             SavedPathes.Add(savePath);
-            Mutex.ReleaseMutex();
-
+            Task saveToFileTask;
             using (StreamWriter saveFileStream = new StreamWriter(savePath))
             {
-                return saveFileStream.WriteAsync(toSave.ToCharArray(), 0, toSave.Length);
+                saveToFileTask = saveFileStream.WriteAsync(toSave.ToCharArray(), 0, toSave.Length);
             }
+            Mutex.ReleaseMutex();
+
+            return saveToFileTask; //QUESTION: am i right that mutex wont be blocked until awaitable task done (if there is any inside critical code)
         }
 
         public void ClearSavedPathes()
