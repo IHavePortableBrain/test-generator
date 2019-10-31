@@ -1,4 +1,5 @@
 using NUnit.Framework;
+using TestGenerator;
 
 namespace Tests
 {
@@ -12,7 +13,8 @@ namespace Tests
         [Test]
         public void Test1()
         {
-            Assert.Pass();
+            SrcFileToTestFile—onveyor conv = new SrcFileToTestFile—onveyor();
+            conv.Post(@"D:\! 5 semester\SPP\test-generator\Test.Files\new.txt");
         }
     }
 }
