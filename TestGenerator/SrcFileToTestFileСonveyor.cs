@@ -9,7 +9,6 @@ namespace TestGenerator
 {
     public class SrcFileToTestFileСonveyor
     {
-        private readonly object LockObj = new object();
         private readonly Mutex Mutex = new Mutex();
 
         public readonly int MaxDegreeOfParallelism = Environment.ProcessorCount;
@@ -17,9 +16,6 @@ namespace TestGenerator
         private readonly TransformBlock<string, string> GenerateTestClassBlock;
         private readonly ActionBlock<string> SaveTestClassFileBlock;
         public List<string> SavedPathes { get; private set; }
-        //private Task<string> ReadFileTask;
-        //private Task<string> GenerateTestFileTask;
-        //private Task SaveTestClassTask;
 
         public SrcFileToTestFileСonveyor()
         {
@@ -87,7 +83,7 @@ namespace TestGenerator
             int i = 0;
             string savePath = null;
 
-            Mutex.WaitOne();
+            Mutex.WaitOne();//QUESTION: why lock was not working but mutex works?
             do
             {
                 savePath = outDir + "\\" + i++ + ".cs";
