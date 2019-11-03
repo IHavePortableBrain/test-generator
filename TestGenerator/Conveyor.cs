@@ -12,6 +12,7 @@ namespace TestGenerator
     {
         public readonly int MaxDegreeOfParallelism = Environment.ProcessorCount;
         public List<string> SavedPathes { get; private set; }
+        private string SaveDir;
 
         private readonly TransformBlock<string, string> LoadTestableFileBlock;
         private readonly TransformBlock<string, FileInfo> GatherInfoBlock;
@@ -24,8 +25,9 @@ namespace TestGenerator
         public Task Complition => SaveTestClassFileBlock.Completion;
 
         //TODO: file name is kept in dataflow to tsve result ot file with proper name; result class with file name field
-        public Conveyor()
+        public Conveyor(string saveDir)
         {
+            SaveDir = saveDir;
             SavedPathes = new List<string>();
             var executionOptions = new ExecutionDataflowBlockOptions { MaxDegreeOfParallelism = MaxDegreeOfParallelism };
             var linkOptions = new DataflowLinkOptions { PropagateCompletion = true };
@@ -54,7 +56,7 @@ namespace TestGenerator
             SaveTestClassFileBlock = new ActionBlock<FormatFile>(
                 async formatTestClassFile =>
                 {
-                    await SaveFile(formatTestClassFile, @"..\..\..\Test.Files");
+                    await SaveFile(formatTestClassFile, SaveDir);
                 },
                 executionOptions);
 

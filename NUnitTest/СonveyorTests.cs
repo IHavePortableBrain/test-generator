@@ -1,5 +1,7 @@
 using NUnit.Framework;
+using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using TestGenerator.TestableFileInfo;
 
@@ -9,11 +11,13 @@ namespace TestGenerator.Tests
     {
         private Conveyor conv;
         private string TestableFileContent;
+        private System.IO.DirectoryInfo outDi = new System.IO.DirectoryInfo(@"..\..\..\Files\out");
 
         [SetUp]
         public void Setup()
         {
-            conv = new Conveyor();
+            ClearOutDir();
+            conv = new Conveyor(@"..\..\..\Files\out");
             using (var sr = new System.IO.StreamReader(@"..\..\..\Files\MyClass.cs"))
             {
                 TestableFileContent = sr.ReadToEnd();
@@ -21,7 +25,7 @@ namespace TestGenerator.Tests
         }
 
         [Test]
-        public void TestGatheredFileInfo()
+        public void GatherInfoTest()
         {
             Task<FileInfo> gatherTask = conv.GatherInfo(TestableFileContent);
             gatherTask.Wait();
@@ -65,6 +69,46 @@ namespace TestGenerator.Tests
                 };
             Assert.AreEqual(expectedParams, actualMethods[3].ParamTypeNamesByParamName);
             Assert.AreEqual("void", actualMethods[3].ReturnTypeName);
+        }
+
+        [Test]
+        public void ParallelWorkTest()
+        {
+            Stopwatch sw = new Stopwatch();
+
+            sw.Start();
+            conv.Post(@"..\..\..\Files\MyClass.cs");
+            conv.Complete();
+            conv.Complition.Wait();
+            sw.Stop();
+            long oneFileProcessingElapsed = sw.ElapsedTicks;
+
+            sw.Restart();
+            conv = new Conveyor(@"..\..\..\Files\out");
+            conv.Post(@"..\..\..\Files\MyClass.cs");
+            conv.Post(@"..\..\..\Files\MyClass.cs");
+            conv.Complete();
+            conv.Complition.Wait();
+            sw.Stop();
+            long twoFileProcessingElapsed = sw.ElapsedTicks;
+
+            Assert.Less(twoFileProcessingElapsed, 2 * oneFileProcessingElapsed);
+            FileAssert.Exists(@"..\..\..\Files\out\MyClassTests.cs");
+            FileAssert.Exists(@"..\..\..\Files\out\MyClassTests0.cs");
+            FileAssert.Exists(@"..\..\..\Files\out\MyClassTests1.cs");
+            System.IO.FileInfo fi1 = Array.Find(outDi.GetFiles(), fi => fi.Name == "MyClassTests.cs");
+            System.IO.FileInfo fi2 = Array.Find(outDi.GetFiles(), fi => fi.Name == "MyClassTests0.cs");
+            System.IO.FileInfo fi3 = Array.Find(outDi.GetFiles(), fi => fi.Name == "MyClassTests1.cs");
+            Assert.AreEqual(fi1.Length, fi2.Length);
+            Assert.AreEqual(fi2.Length, fi3.Length);
+        }
+
+        private void ClearOutDir()
+        {
+            foreach (System.IO.FileInfo file in outDi.GetFiles())
+            {
+                file.Delete();
+            }
         }
     }
 }

@@ -9,6 +9,16 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Files\out\**" />
+    <EmbeddedResource Remove="Files\out\**" />
+    <None Remove="Files\out\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="Files\Faker.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="nunit" Version="3.12.0" />
     <PackageReference Include="NUnit3TestAdapter" Version="3.15.1" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.3.0" />
