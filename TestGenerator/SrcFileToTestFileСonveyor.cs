@@ -9,55 +9,61 @@ namespace TestGenerator
 {
     public class SrcFileToTestFileСonveyor
     {
-        private readonly Mutex Mutex = new Mutex();
-
         public readonly int MaxDegreeOfParallelism = Environment.ProcessorCount;
+        public List<string> SavedPathes { get; private set; }
+
         private readonly TransformBlock<string, string> LoadTestableFileBlock;
         private readonly TransformBlock<string, string> GenerateTestClassBlock;
         private readonly ActionBlock<string> SaveTestClassFileBlock;
-        public List<string> SavedPathes { get; private set; }
+
+        private readonly Mutex Mutex = new Mutex();
+
+        private bool _isComplited = false;
+        public Task Complition => SaveTestClassFileBlock.Completion;
 
         public SrcFileToTestFileСonveyor()
         {
             SavedPathes = new List<string>();
+            var executionOptions = new ExecutionDataflowBlockOptions { MaxDegreeOfParallelism = MaxDegreeOfParallelism };
+            var linkOptions = new DataflowLinkOptions { PropagateCompletion = true };
 
             LoadTestableFileBlock = new TransformBlock<string, string>(
                 async path =>
                 {
                     return await ReadFileContent(path);
                 },
-                new ExecutionDataflowBlockOptions
-                {
-                    MaxDegreeOfParallelism = MaxDegreeOfParallelism
-                });
+                executionOptions);
 
             GenerateTestClassBlock = new TransformBlock<string, string>(
                 async testableFileContent =>
                 {
                     return await GenerateTestClassFile(testableFileContent);
                 },
-                new ExecutionDataflowBlockOptions
-                {
-                    MaxDegreeOfParallelism = MaxDegreeOfParallelism
-                });
+                executionOptions);
 
             SaveTestClassFileBlock = new ActionBlock<string>(
                 async testClassCode =>
                 {
                     await SaveToFile(testClassCode);
                 },
-                new ExecutionDataflowBlockOptions
-                {
-                    MaxDegreeOfParallelism = MaxDegreeOfParallelism
-                });
+                executionOptions);
 
-            LoadTestableFileBlock.LinkTo(GenerateTestClassBlock, fileContent => fileContent.Length > 0);
-            GenerateTestClassBlock.LinkTo(SaveTestClassFileBlock);
+            LoadTestableFileBlock.LinkTo(GenerateTestClassBlock, linkOptions, fileContent => fileContent.Length > 0);
+            GenerateTestClassBlock.LinkTo(SaveTestClassFileBlock, linkOptions);
         }
 
-        public void Post(string testableFilePath)
+        public bool Post(string testableFilePath)
         {
+            if (_isComplited)
+                return false;
             LoadTestableFileBlock.Post(testableFilePath);
+            //TODO: multithreading task completion
+            return true;
+        }
+
+        public void Complete()
+        {
+            LoadTestableFileBlock.Complete();
         }
 
         private async Task<string> ReadFileContent(string path)
@@ -79,7 +85,7 @@ namespace TestGenerator
 
         private Task SaveToFile(string toSave)
         {
-            string outDir = @"D:\! 5 semester\SPP\test-generator\Test.Files";
+            string outDir = @"..\..\..\Test.Files";
             int i = 0;
             string savePath = null;
 
@@ -95,9 +101,9 @@ namespace TestGenerator
             {
                 saveToFileTask = saveFileStream.WriteAsync(toSave.ToCharArray(), 0, toSave.Length);
             }
-            Mutex.ReleaseMutex();
+            Mutex.ReleaseMutex();//QUESTION: am i right that mutex wont be blocked until awaitable task done (if there is any inside critical code)
 
-            return saveToFileTask; //QUESTION: am i right that mutex wont be blocked until awaitable task done (if there is any inside critical code)
+            return saveToFileTask;
         }
 
         public void ClearSavedPathes()

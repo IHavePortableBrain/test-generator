@@ -15,9 +15,13 @@ namespace TestGenerator.UI
 
             // Post the selected path to the network.
             //foreACH
-            conveyor.Post(@"D:\! 5 semester\SPP\test-generator\TestGenerator\TestableFileInfo\FileInfo.cs");
+            conveyor.Post(@"..\..\..\NUnitTest\Files\MyClass.cs");
+            conveyor.Post(@"..\..\..\Test.Files\Faker.cs");
+            conveyor.Post(@"..\..\..\Test.Files\Faker.cs");
+
+            conveyor.Complete();
+            conveyor.Complition.Wait();
             //wait
-            Console.ReadKey();
         }
     }
 }

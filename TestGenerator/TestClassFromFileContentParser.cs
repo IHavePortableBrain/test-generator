@@ -33,10 +33,21 @@ namespace TestGenerator
         private string MakeTestClass()
         {
             StringBuilder sb = new StringBuilder(StringBuilderInitCapacity);
-            sb.AppendLine("using NUnit.Framework;");
-            sb.AppendLine("using Moq;");
 
-            return "42";
+            //QUESTION: better use string.Join(Environment.NewLine, new string[]{ "line1", "line2"}?
+            sb.AppendLine(@"using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using NUnit.Framework;
+using Moq;");
+
+            foreach (NamespaceInfo ns in _testableFileInfo.Namespaces)
+            {
+                sb.AppendFormat("using {0}; ", ns.Name);
+            }
+
+            return sb.ToString();
         }
     }
 }

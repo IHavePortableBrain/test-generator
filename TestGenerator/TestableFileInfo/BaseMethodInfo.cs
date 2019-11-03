@@ -12,7 +12,7 @@ namespace TestGenerator.TestableFileInfo
 
         public void Initialize(BaseMethodDeclarationSyntax mds)
         {
-            //TODO: if is ctor no ret value; method name extract
+            //TODO: if is ctor there is no ret value; method name extract
             Name = mds.ChildTokens().Last().ToString();
 
             ReturnTypeName = mds.ChildNodes().OfType<TypeSyntax>().FirstOrDefault()?.ToString();
