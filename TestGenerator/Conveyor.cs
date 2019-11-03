@@ -1,9 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
+using TestGenerator.TestableFileInfo;
+using TestGenerator.Format;
 
 namespace TestGenerator
 {
@@ -13,7 +14,8 @@ namespace TestGenerator
         public List<string> SavedPathes { get; private set; }
 
         private readonly TransformBlock<string, string> LoadTestableFileBlock;
-        private readonly TransformBlock<string, string> GenerateTestClassBlock;
+        private readonly TransformBlock<string, FileInfo> GatherInfoBlock;
+        private readonly TransformBlock<FileInfo, string> GenerateTestClassBlock;
         private readonly ActionBlock<string> SaveTestClassFileBlock;
 
         private readonly Mutex DirectoryWorkMutex = new Mutex();
@@ -35,10 +37,17 @@ namespace TestGenerator
                 },
                 executionOptions);
 
-            GenerateTestClassBlock = new TransformBlock<string, string>(
+            GatherInfoBlock = new TransformBlock<string, FileInfo>(
                 async testableFileContent =>
                 {
-                    return await GenerateTestClassFile(testableFileContent);
+                    return await GatherInfo(testableFileContent);
+                },
+                executionOptions);
+
+            GenerateTestClassBlock = new TransformBlock<FileInfo, string>(
+                async gatheredInfo =>
+                {
+                    return await GenerateTestClassFile(gatheredInfo);
                 },
                 executionOptions);
 
@@ -49,7 +58,9 @@ namespace TestGenerator
                 },
                 executionOptions);
 
-            LoadTestableFileBlock.LinkTo(GenerateTestClassBlock, linkOptions, fileContent => fileContent.Length > 0);
+            LoadTestableFileBlock.LinkTo(GatherInfoBlock, linkOptions, fileContent => fileContent.Length > 0);
+            GatherInfoBlock.LinkTo(GenerateTestClassBlock, linkOptions, fileInfo =>
+                fileInfo != null && fileInfo.Namespaces.Count > 0);
             GenerateTestClassBlock.LinkTo(SaveTestClassFileBlock, linkOptions);
         }
 
@@ -69,16 +80,27 @@ namespace TestGenerator
 
         private async Task<string> ReadFileContent(string path)
         {
-            using (StreamReader reader = new StreamReader(path))
+            using (var reader = new System.IO.StreamReader(path))
             {
                 return await reader.ReadToEndAsync(); //QUESTION: why this method await needed for no runtime exception; and next method
             }
         }
 
-        private Task<string> GenerateTestClassFile(string testableFileContent)
+        private Task<string> GenerateTestClassFile(FileInfo fi)
         {
-            ContentParser cp = new ContentParser();
-            return cp.GetTestClassFrom(testableFileContent);
+            Formatter formatter = new Formatter();
+            return formatter.MakeTestClassFile(fi);
+        }
+
+        internal Task<FileInfo> GatherInfo(string testableFileContent)//QUESTION: i need this class being private but for test it must be internal
+        {
+            return Task.Run(() =>
+            {
+                var result = new FileInfo();//QUESTION: Fat,implicitly slow ctor or simple ctor + Init method?
+                result.Initialize(testableFileContent);//QUESTION: why test runtime crashes because of lack of Collection.Immutable; check out NUnitTest NuGet added
+
+                return result;
+            });
         }
 
         private Task SaveToFile(string toSave, string outDir)
@@ -90,12 +112,12 @@ namespace TestGenerator
             do
             {
                 savePath = outDir + "\\" + i++ + ".cs";
-            } while (File.Exists(savePath));
+            } while (System.IO.File.Exists(savePath));
 
             SavedPathes.Add(savePath);
             Task saveToFileTask = Task.Run(() =>
             {
-                using (StreamWriter saveFileStream = new StreamWriter(savePath))
+                using (var saveFileStream = new System.IO.StreamWriter(savePath))
                 {
                     saveFileStream.Write(toSave.ToCharArray(), 0, toSave.Length);
                 }

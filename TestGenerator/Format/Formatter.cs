@@ -4,41 +4,31 @@ using System.Text;
 using System.Threading.Tasks;
 using TestGenerator.TestableFileInfo;
 
-namespace TestGenerator
+namespace TestGenerator.Format
 {
-    internal class ContentParser
+    internal class Formatter
     {
         private const int StringBuilderInitCapacity = 16 * 1024;
         private const string Tab = "    ";
         private readonly StringBuilder _sb = new StringBuilder(StringBuilderInitCapacity);
 
-        private int BaseStackFrameNumber;
+        private int StackFrameBaseNumber;
 
         private FileInfo _testableFileInfo;
-        private string _testableFileContent;
 
         //Must return Task, and there shoud be no task.Wait inside
-        internal Task<string> GetTestClassFrom(string testableFileContent)
+        internal Task<string> MakeTestClassFile(FileInfo testableFileInfo)
         {
-            _testableFileContent = testableFileContent;
             return Task.Run(() =>
             {
-                _testableFileInfo = GatherInfo(testableFileContent);
+                _testableFileInfo = testableFileInfo;
                 return MakeTestClassFileContent();//QUESTION: is it okey i am implicitly using field _testableFileInfo?
             });
         }
 
-        internal FileInfo GatherInfo(string testableFileContent)//QUESTION: i need this class being private but for test it must be internal
-        {
-            var result = new FileInfo();//QUESTION: Fat,implicitly slow ctor or simple ctor + Init method?
-            result.Initialize(testableFileContent);//QUESTION: why test runtime crashes because of lack of Collection.Immutable; check out NUnitTest NuGet added dependency
-
-            return result;
-        }
-
         private string MakeTestClassFileContent()
         {
-            BaseStackFrameNumber = new StackTrace().FrameCount;
+            StackFrameBaseNumber = new StackTrace().FrameCount;
 
             //QUESTION: better use string.Join(Environment.NewLine, new string[]{ "line1", "line2"}?
             AppendLine(@"using System;
@@ -90,7 +80,7 @@ using Moq;");
         private void AddIndent()
         {
             int currDepth = new StackTrace().FrameCount;
-            for (int i = 0; i < currDepth - 2 - BaseStackFrameNumber; i++)
+            for (int i = 0; i < currDepth - 2 - StackFrameBaseNumber; i++)
                 _sb.Append(Tab);
         }
 
