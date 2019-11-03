@@ -79,8 +79,8 @@
     <Compile Include="TestableFileInfo\ClassInfo.cs" />
     <Compile Include="TestableFileInfo\BaseMethodInfo.cs" />
     <Compile Include="TestableFileInfo\NamespaceInfo.cs" />
-    <Compile Include="TestClassFromFileContentParser.cs" />
-    <Compile Include="SrcFileToTestFileСonveyor.cs" />
+    <Compile Include="ContentParser.cs" />
+    <Compile Include="Conveyor.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="TestableFileInfo\FileInfo.cs" />
   </ItemGroup>

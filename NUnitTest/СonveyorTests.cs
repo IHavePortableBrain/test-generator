@@ -3,12 +3,12 @@ using TestGenerator;
 
 namespace TestGenerator.Tests
 {
-    public class SrcFileToTestFile—onveyorTests
+    public class —onveyorTests
     {
         [SetUp]
         public void Setup()
         {
-            SrcFileToTestFile—onveyor conv = new SrcFileToTestFile—onveyor();
+            Conveyor conv = new Conveyor();
             conv.Post(@"D:\! 5 semester\SPP\test-generator\Test.Files\new.txt");
         }
 

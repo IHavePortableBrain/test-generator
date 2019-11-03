@@ -10,18 +10,15 @@ namespace TestGenerator.UI
     {
         private static void Main(string[] args)
         {
-            // Create the image processing network if needed.
-            var conveyor = new SrcFileToTestFileСonveyor(); //??=
+            var conveyor = new Conveyor();
 
-            // Post the selected path to the network.
-            //foreACH
-            conveyor.Post(@"..\..\..\NUnitTest\Files\MyClass.cs");
-            conveyor.Post(@"..\..\..\Test.Files\Faker.cs");
-            conveyor.Post(@"..\..\..\Test.Files\Faker.cs");
+            Console.WriteLine(conveyor.Post(@"..\..\..\NUnitTest\Files\MyClass.cs"));
+            Console.WriteLine(conveyor.Post(@"..\..\..\Test.Files\Faker.cs"));
 
             conveyor.Complete();
+            Console.WriteLine(conveyor.Post(@"..\..\..\NUnitTest\Files\MyClass.cs"));
+
             conveyor.Complition.Wait();
-            //wait
         }
     }
 }

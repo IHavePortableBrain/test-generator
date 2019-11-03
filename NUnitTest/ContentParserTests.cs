@@ -5,15 +5,15 @@ using TestGenerator.TestableFileInfo;
 
 namespace TestGenerator.Tests
 {
-    public class TestClassFromFileContentParserTests
+    public class ContentParserTests
     {
-        private TestClassFromFileContentParser Parser;
+        private ContentParser Parser;
         private string TestableFileContent;
 
         [SetUp]
         public void Setup()
         {
-            Parser = new TestClassFromFileContentParser();
+            Parser = new ContentParser();
             using (StreamReader sr = new StreamReader(@"..\..\..\Files\MyClass.cs"))
             {
                 TestableFileContent = sr.ReadToEnd();
