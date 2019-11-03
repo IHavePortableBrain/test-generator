@@ -76,6 +76,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Format\FormatFile.cs" />
     <Compile Include="TestableFileInfo\ClassInfo.cs" />
     <Compile Include="TestableFileInfo\BaseMethodInfo.cs" />
     <Compile Include="TestableFileInfo\NamespaceInfo.cs" />

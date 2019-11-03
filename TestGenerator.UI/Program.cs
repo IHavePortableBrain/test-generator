@@ -16,9 +16,12 @@ namespace TestGenerator.UI
             Console.WriteLine(conveyor.Post(@"..\..\..\Test.Files\Faker.cs"));
 
             conveyor.Complete();
-            Console.WriteLine(conveyor.Post(@"..\..\..\NUnitTest\Files\MyClass.cs"));
-
             conveyor.Complition.Wait();
+
+            foreach (var item in conveyor.SavedPathes)
+            {
+                Console.WriteLine(item);
+            }
         }
     }
 }

@@ -17,13 +17,18 @@ namespace TestGenerator.Format
         private FileInfo _testableFileInfo;
 
         //Must return Task, and there shoud be no task.Wait inside
-        internal Task<string> MakeTestClassFile(FileInfo testableFileInfo)
+        internal Task<FormatFile> MakeTestClassFile(FileInfo testableFileInfo)
         {
             return Task.Run(() =>
             {
                 _testableFileInfo = testableFileInfo;
-                return MakeTestClassFileContent();//QUESTION: is it okey i am implicitly using field _testableFileInfo?
+                return new FormatFile(MakeTestClassFileName(), MakeTestClassFileContent());//QUESTION: is it okey i am implicitly using field _testableFileInfo?
             });
+        }
+
+        private string MakeTestClassFileName()
+        {
+            return _testableFileInfo.Namespaces[0].Classes[0].Name;
         }
 
         private string MakeTestClassFileContent()

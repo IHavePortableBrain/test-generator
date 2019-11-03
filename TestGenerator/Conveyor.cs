@@ -15,8 +15,8 @@ namespace TestGenerator
 
         private readonly TransformBlock<string, string> LoadTestableFileBlock;
         private readonly TransformBlock<string, FileInfo> GatherInfoBlock;
-        private readonly TransformBlock<FileInfo, string> GenerateTestClassBlock;
-        private readonly ActionBlock<string> SaveTestClassFileBlock;
+        private readonly TransformBlock<FileInfo, FormatFile> GenerateTestClassBlock;
+        private readonly ActionBlock<FormatFile> SaveTestClassFileBlock;
 
         private readonly Mutex DirectoryWorkMutex = new Mutex();
 
@@ -44,17 +44,17 @@ namespace TestGenerator
                 },
                 executionOptions);
 
-            GenerateTestClassBlock = new TransformBlock<FileInfo, string>(
+            GenerateTestClassBlock = new TransformBlock<FileInfo, FormatFile>(
                 async gatheredInfo =>
                 {
                     return await GenerateTestClassFile(gatheredInfo);
                 },
                 executionOptions);
 
-            SaveTestClassFileBlock = new ActionBlock<string>(
-                async testClassCode =>
+            SaveTestClassFileBlock = new ActionBlock<FormatFile>(
+                async formatTestClassFile =>
                 {
-                    await SaveToFile(testClassCode, @"..\..\..\Test.Files");
+                    await SaveFile(formatTestClassFile, @"..\..\..\Test.Files");
                 },
                 executionOptions);
 
@@ -86,7 +86,7 @@ namespace TestGenerator
             }
         }
 
-        private Task<string> GenerateTestClassFile(FileInfo fi)
+        private Task<FormatFile> GenerateTestClassFile(FileInfo fi)
         {
             Formatter formatter = new Formatter();
             return formatter.MakeTestClassFile(fi);
@@ -103,16 +103,23 @@ namespace TestGenerator
             });
         }
 
-        private Task SaveToFile(string toSave, string outDir)
+        private Task SaveFile(FormatFile ff, string outDir)
         {
+            string toSave = ff.Content;
+            string fName = ff.Name + "Tests";
             int i = 0;
             string savePath = null;
 
             DirectoryWorkMutex.WaitOne();//QUESTION: why lock was not working but mutex works?
-            do
+
+            savePath = outDir + "\\" + fName + ".cs";
+            if (System.IO.File.Exists(savePath))
             {
-                savePath = outDir + "\\" + i++ + ".cs";
-            } while (System.IO.File.Exists(savePath));
+                do
+                {
+                    savePath = outDir + "\\" + fName + i++ + ".cs";
+                } while (System.IO.File.Exists(savePath));
+            }
 
             SavedPathes.Add(savePath);
             Task saveToFileTask = Task.Run(() =>
