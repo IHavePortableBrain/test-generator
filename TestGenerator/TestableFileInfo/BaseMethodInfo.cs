@@ -17,7 +17,7 @@ namespace TestGenerator.TestableFileInfo
             ReturnTypeName = mds.ChildNodes().OfType<TypeSyntax>().FirstOrDefault()?.ToString();
 
             ParamTypeNamesByParamName = mds.DescendantNodes().OfType<ParameterSyntax>()
-                .Select(ps => new KeyValuePair<string, string>(ps.Type.ToString(), ps.Identifier.ToString()))
+                .Select(ps => new KeyValuePair<string, string>(ps.Identifier.ToString(), ps.Type.ToString()))
                 .ToList();
         }
     }

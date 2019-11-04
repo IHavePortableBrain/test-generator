@@ -1,7 +1,10 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using TestGenerator.Extension;
 using TestGenerator.TestableFileInfo;
 
 namespace TestGenerator.Format
@@ -10,6 +13,7 @@ namespace TestGenerator.Format
     {
         private const int StringBuilderInitCapacity = 16 * 1024;
         private const string Tab = "    ";
+        private string TestObjectVarName;
         private readonly StringBuilder _sb = new StringBuilder(StringBuilderInitCapacity);
 
         private int StackFrameBaseNumber;
@@ -64,9 +68,8 @@ using Moq;");
             return _sb.ToString();
         }
 
-        private void Append(string str = "")
+        private void AppendNoIndent(string str = "")
         {
-            AddIndent();
             _sb.Append(str);
         }
 
@@ -97,7 +100,7 @@ using Moq;");
         {
             AppendFormat("public class {0}Tests\n", ci.Name);
             AppendLine("{");
-            //AddSetUp(ci);
+            AddSetUp(ci);
             foreach (BaseMethodInfo mi in ci.Methods)
             {
                 AddMethodTest(mi);
@@ -107,7 +110,65 @@ using Moq;");
 
         private void AddSetUp(ClassInfo ci)
         {
-            throw new NotImplementedException();
+            var mockTypesByVarName = new List<KeyValuePair<string, string>>();
+
+            TestObjectVarName = ci.Name.GetPrivateVarName();
+
+            AppendFormat("private {0} {1};\n", ci.Name, TestObjectVarName);
+
+            foreach (var kvp in ci.Constructors[0]
+                .ParamTypeNamesByParamName)
+            {
+                string varName = kvp.Key.GetPrivateVarName();
+                if (kvp.Value[0] == 'I')
+                {
+                    AppendFormat("private Mock<{0}> {1};\n", kvp.Key, varName);
+                    mockTypesByVarName.Add(new KeyValuePair<string, string>(varName, kvp.Value));
+                }
+                else
+                {
+                    string fullTypeName = kvp.Value.GetFullTypeName();
+                    System.Type type = System.Type.GetType(fullTypeName);
+                    object defaultValue = type?.GetDefault();
+                    AppendFormat("private {0} {1} = {2};\n",
+                        kvp.Value,
+                        kvp.Key.GetPrivateVarName(),
+                        defaultValue ?? "null");
+                }
+            }
+            AppendLine();
+
+            AppendLine("[SetUp]");
+            AppendLine("public void SetUp()");
+            AppendLine("{");
+
+            AddSetUpArrange(ci, mockTypesByVarName);
+
+            AppendLine("}");
+
+            AppendLine();
+        }
+
+        private void AddSetUpArrange(ClassInfo ci, List<KeyValuePair<string, string>> mockTypesByVarName)
+        {
+            foreach (var kvp in mockTypesByVarName)
+            {
+                AppendFormat("{0} = new Mock<{1}>();\n", kvp.Key, kvp.Value);
+            }
+            AppendFormat("{0} = new {1}(", TestObjectVarName, ci.Name);
+
+            List<KeyValuePair<string, string>> paramPairs = ci
+                .Constructors[0]
+                .ParamTypeNamesByParamName;
+            for (int i = 0; i < paramPairs.Count - 1; i++)
+            {
+                AppendNoIndent(paramPairs[i].Key.GetPrivateVarName() + ", ");
+            }
+            if (paramPairs.Count > 0)
+            {
+                AppendNoIndent(paramPairs[paramPairs.Count - 1].Key.GetPrivateVarName());
+            }
+            AppendNoIndent(");\n");
         }
 
         private void AddMethodTest(BaseMethodInfo mi)
@@ -128,19 +189,59 @@ using Moq;");
         {
         }
 
-        private void AddMethodTestAssert(BaseMethodInfo mi)
+        private void AddMethodTestArrange(BaseMethodInfo mi)
         {
-            _sb.AppendLine("Assert by _sb");
+            foreach (var kvp in mi.ParamTypeNamesByParamName)
+            {
+                string fullTypeName = kvp.Value.GetFullTypeName();
+                System.Type type = System.Type.GetType(fullTypeName);
+                object defaultValue = type?.GetDefault();
+                AppendFormat("{0} {1} = {2};\n",
+                    kvp.Value,
+                    kvp.Key,
+                    defaultValue ?? "null");
+            }
+            AppendLine();
         }
 
         //QUESTION: [MethodImpl(MethodImplOptions.AggressiveInlining)] is evil?
         private void AddMethodTestAct(BaseMethodInfo mi)
         {
-            AppendLine("Act by method");
+            if (mi.ReturnTypeName != "void")
+            {
+                AppendFormat("{0} actual = ", mi.ReturnTypeName);
+                AppendNoIndent(TestObjectVarName + "." + mi.Name + "(");
+            }
+            else
+                AppendFormat("{0}", TestObjectVarName + "." + mi.Name + "(");
+
+            List<KeyValuePair<string, string>> paramPairs = mi.ParamTypeNamesByParamName;
+            for (int i = 0; i < paramPairs.Count - 1; i++)
+            {
+                AppendNoIndent(paramPairs[i].Key + ", ");
+            }
+            if (paramPairs.Count > 0)
+            {
+                AppendNoIndent(paramPairs[paramPairs.Count - 1].Key);
+            }
+            AppendNoIndent(");\n");
+
+            AppendLine();
         }
 
-        private void AddMethodTestArrange(BaseMethodInfo mi)
+        private void AddMethodTestAssert(BaseMethodInfo mi)
         {
+            if (mi.ReturnTypeName != "void")
+            {
+                string fullTypeName = mi.ReturnTypeName.GetFullTypeName();
+                System.Type type = System.Type.GetType(fullTypeName);
+                object defaultValue = type?.GetDefault();
+
+                AppendFormat("{0} expected = {1};\n", mi.ReturnTypeName, defaultValue);
+                AppendLine("Assert.That(actual, Is.EqualTo(expected));");
+            }
+
+            AppendLine("Assert.Fail(\"autogenerated\");");
         }
     }
 }

@@ -10,10 +10,10 @@ namespace TestGenerator.UI
     {
         private static void Main(string[] args)
         {
-            var conveyor = new Conveyor(@"..\..\..\Test.Files");
+            var conveyor = new Conveyor(@"..\..\..\NUnitTest\Files\out");
 
+            Console.WriteLine(conveyor.Post(@"..\..\..\NUnitTest\Files\DependentClass.cs"));
             Console.WriteLine(conveyor.Post(@"..\..\..\NUnitTest\Files\MyClass.cs"));
-            Console.WriteLine(conveyor.Post(@"..\..\..\Test.Files\Faker.cs"));
 
             conveyor.Complete();
             conveyor.Complition.Wait();
