@@ -122,7 +122,7 @@ using Moq;");
                 string varName = kvp.Key.GetPrivateVarName();
                 if (kvp.Value[0] == 'I')
                 {
-                    AppendFormat("private Mock<{0}> {1};\n", kvp.Key, varName);
+                    AppendFormat("private Mock<{0}> {1};\n", kvp.Value, varName);
                     mockTypesByVarName.Add(new KeyValuePair<string, string>(varName, kvp.Value));
                 }
                 else
@@ -162,7 +162,7 @@ using Moq;");
                 .ParamTypeNamesByParamName;
             for (int i = 0; i < paramPairs.Count - 1; i++)
             {
-                AppendNoIndent(paramPairs[i].Key.GetPrivateVarName() + ", ");
+                AppendNoIndent(paramPairs[i].Key.GetPrivateVarName() + ".Object, ");
             }
             if (paramPairs.Count > 0)
             {
