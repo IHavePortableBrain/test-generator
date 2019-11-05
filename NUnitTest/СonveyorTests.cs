@@ -6,6 +6,9 @@ using System.Threading.Tasks;
 using System.Runtime.Caching;
 using TestGenerator.TestableFileInfo;
 using System.Linq;
+using System.Threading.Tasks.Dataflow;
+using TestGenerator.Format;
+using System.Threading;
 
 namespace TestGenerator.Tests
 {
@@ -13,7 +16,21 @@ namespace TestGenerator.Tests
     {
         private Conveyor conv;
         private string TestableFileContent;
-        private System.IO.DirectoryInfo outDi = new System.IO.DirectoryInfo(@"..\..\..\Files\out");
+
+        private const string OutDir = @"..\..\..\Files\out";
+        private System.IO.DirectoryInfo outDi = new System.IO.DirectoryInfo(OutDir);
+
+        public static readonly int MaxDegreeOfParallelism = Environment.ProcessorCount;
+
+        private static readonly ExecutionDataflowBlockOptions _executionOptions =
+            new ExecutionDataflowBlockOptions { MaxDegreeOfParallelism = MaxDegreeOfParallelism };
+
+        private readonly DataflowLinkOptions linkOptions =
+            new DataflowLinkOptions { PropagateCompletion = true };
+
+        private ActionBlock<FormatFile> SaveTestClassFileBlock;
+
+        private readonly Mutex DirectoryWorkMutex = new Mutex();
 
         [SetUp]
         public void Setup()
@@ -23,12 +40,19 @@ namespace TestGenerator.Tests
             {
                 TestableFileContent = sr.ReadToEnd();
             }
+
+            SaveTestClassFileBlock = new ActionBlock<FormatFile>(
+                async formatTestClassFile =>
+                {
+                    await SaveFile(formatTestClassFile, OutDir);
+                },
+                _executionOptions);
         }
 
         [Test]
         public void GatherInfoTest()
         {
-            conv = new Conveyor(@"..\..\..\Files\out");
+            conv = new Conveyor();
 
             Task<FileInfo> gatherTask = conv.GatherInfo(TestableFileContent);
             gatherTask.Wait();
@@ -52,29 +76,20 @@ namespace TestGenerator.Tests
             Assert.AreEqual(null, actualConstructors[0].ReturnTypeName);
 
             List<BaseMethodInfo> actualMethods = actualClasses[0].Methods;
-            Assert.AreEqual(3, actualMethods.Count);
+            Assert.AreEqual(2, actualMethods.Count);
 
-            Assert.AreEqual("PrivateStringMethod", actualMethods[0].Name);
-            Assert.AreEqual(2, actualMethods[0].ParamTypeNamesByParamName.Count);
+            Assert.AreEqual("PublicVoidMethod1", actualMethods[0].Name);
+            Assert.AreEqual(0, actualMethods[0].ParamTypeNamesByParamName.Count);
+            Assert.AreEqual("void", actualMethods[0].ReturnTypeName);
+
+            Assert.AreEqual("PublicVoidMethod2", actualMethods[1].Name);
+            Assert.AreEqual(2, actualMethods[1].ParamTypeNamesByParamName.Count);
             var expectedParams = new List<KeyValuePair<string, string>> {
-                new KeyValuePair<string, string>("str1" ,"string"),
-                new KeyValuePair<string, string>("int1","int"),
-                };
-            Assert.AreEqual(expectedParams, actualMethods[0].ParamTypeNamesByParamName);
-            Assert.AreEqual("string", actualMethods[0].ReturnTypeName);
-
-            Assert.AreEqual("PublicVoidMethod1", actualMethods[1].Name);
-            Assert.AreEqual(0, actualMethods[1].ParamTypeNamesByParamName.Count);
-            Assert.AreEqual("void", actualMethods[1].ReturnTypeName);
-
-            Assert.AreEqual("PublicVoidMethod2", actualMethods[2].Name);
-            Assert.AreEqual(2, actualMethods[2].ParamTypeNamesByParamName.Count);
-            expectedParams = new List<KeyValuePair<string, string>> {
                 new KeyValuePair<string, string>("d","decimal"),
                 new KeyValuePair<string, string>("os","OperatingSystem"),
                 };
-            Assert.AreEqual(expectedParams, actualMethods[2].ParamTypeNamesByParamName);
-            Assert.AreEqual("void", actualMethods[2].ReturnTypeName);
+            Assert.AreEqual(expectedParams, actualMethods[1].ParamTypeNamesByParamName);
+            Assert.AreEqual("void", actualMethods[1].ReturnTypeName);
         }
 
         [Test]
@@ -83,28 +98,40 @@ namespace TestGenerator.Tests
             Stopwatch sw = new Stopwatch();
 
             sw.Restart();
-            conv = new Conveyor(@"..\..\..\Files\out");
-            conv.Post(@"..\..\..\Files\MyClass.cs");
-            conv.Post(@"..\..\..\Files\MyClass.cs");
+            conv = new Conveyor();
+            conv.LinkTo(SaveTestClassFileBlock, linkOptions);
+
+            conv.Post(TestableFileContent);
             conv.Complete();
-            conv.Complition.Wait();
+            SaveTestClassFileBlock.Completion.Wait();
             sw.Stop();
-            long twoFileProcessingElapsed = sw.ElapsedMilliseconds;
+            long oneFileProcessingElapsed = sw.ElapsedMilliseconds;
+            //SaveTestClassFileBlock.Completion.Status;
+            SaveTestClassFileBlock = new ActionBlock<FormatFile>(
+                async formatTestClassFile =>
+                {
+                    await SaveFile(formatTestClassFile, OutDir);
+                },
+                _executionOptions);
 
             ClearCache();
 
             sw.Restart();
-            conv = new Conveyor(@"..\..\..\Files\out");
-            conv.Post(@"..\..\..\Files\MyClass.cs");
+            conv = new Conveyor();
+            conv.LinkTo(SaveTestClassFileBlock, linkOptions);
+
+            conv.Post(TestableFileContent);
+            conv.Post(TestableFileContent);
             conv.Complete();
-            conv.Complition.Wait();
+            conv.Completion.Wait();
+            SaveTestClassFileBlock.Completion.Wait();
             sw.Stop();
-            long oneFileProcessingElapsed = sw.ElapsedMilliseconds;
+            long twoFileProcessingElapsed = sw.ElapsedMilliseconds;
 
             Assert.Less(twoFileProcessingElapsed, 2 * oneFileProcessingElapsed);
-            FileAssert.Exists(@"..\..\..\Files\out\MyClassTests.cs");
-            FileAssert.Exists(@"..\..\..\Files\out\MyClassTests0.cs");
-            FileAssert.Exists(@"..\..\..\Files\out\MyClassTests1.cs");
+            FileAssert.Exists(OutDir + @"\MyClassTests.cs");
+            FileAssert.Exists(OutDir + @"\MyClassTests0.cs");
+            FileAssert.Exists(OutDir + @"\MyClassTests1.cs");
             System.IO.FileInfo fi1 = Array.Find(outDi.GetFiles(), fi => fi.Name == "MyClassTests.cs");
             System.IO.FileInfo fi2 = Array.Find(outDi.GetFiles(), fi => fi.Name == "MyClassTests0.cs");
             System.IO.FileInfo fi3 = Array.Find(outDi.GetFiles(), fi => fi.Name == "MyClassTests1.cs");
@@ -128,6 +155,36 @@ namespace TestGenerator.Tests
             {
                 cache.Remove(cacheKey);
             }
+        }
+
+        private Task SaveFile(FormatFile ff, string outDir)
+        {
+            string toSave = ff.Content;
+            string fName = ff.Name + "Tests";
+            int i = 0;
+            string savePath = null;
+
+            DirectoryWorkMutex.WaitOne();
+
+            savePath = outDir + "\\" + fName + ".cs";
+            if (System.IO.File.Exists(savePath))
+            {
+                do
+                {
+                    savePath = outDir + "\\" + fName + i++ + ".cs";
+                } while (System.IO.File.Exists(savePath));
+            }
+
+            Task saveToFileTask = Task.Run(() =>
+            {
+                using (var saveFileStream = new System.IO.StreamWriter(savePath))
+                {
+                    saveFileStream.Write(toSave.ToCharArray(), 0, toSave.Length);
+                }
+            });
+            DirectoryWorkMutex.ReleaseMutex();
+
+            return saveToFileTask;
         }
     }
 }

@@ -29,6 +29,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\TestGenerator.UI\TestGenerator.UI.csproj" />
     <ProjectReference Include="..\TestGenerator\TestGenerator.csproj" />
   </ItemGroup>
 

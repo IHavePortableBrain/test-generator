@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace TestGenerator.Format
 {
-    internal class FormatFile
+    public class FormatFile
     {
         public string Name { get; private set; }
         public string Content { get; private set; }

@@ -4,7 +4,7 @@ using System.Text;
 
 namespace TestGenerator.Tests.Files
 {
-    internal class MyClass
+    public class MyClass
     {
         public MyClass()
         {
@@ -15,11 +15,11 @@ namespace TestGenerator.Tests.Files
             return "42";
         }
 
-        private void PublicVoidMethod1()
+        public void PublicVoidMethod1()
         {
         }
 
-        private void PublicVoidMethod2(decimal d, OperatingSystem os)
+        public void PublicVoidMethod2(decimal d, OperatingSystem os)
         {
         }
     }

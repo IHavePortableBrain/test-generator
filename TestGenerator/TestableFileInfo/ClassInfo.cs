@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace TestGenerator.TestableFileInfo
@@ -22,6 +23,10 @@ namespace TestGenerator.TestableFileInfo
             Name = cds.Identifier.ToString();
             foreach (var mds in cds.DescendantNodes().OfType<MethodDeclarationSyntax>())
             {
+                SyntaxToken publicToken = mds.ChildTokens().ToList().Find(token => token.ValueText == "public");
+                if (publicToken == default(SyntaxToken))
+                    continue;
+
                 BaseMethodInfo miToAdd = new BaseMethodInfo();
                 miToAdd.Initialize(mds);
                 Methods.Add(miToAdd);
@@ -29,6 +34,10 @@ namespace TestGenerator.TestableFileInfo
 
             foreach (var ctor in cds.DescendantNodes().OfType<ConstructorDeclarationSyntax>())
             {
+                SyntaxToken publicToken = cds.ChildTokens().ToList().Find(token => token.ValueText == "public");
+                if (publicToken == default(SyntaxToken))
+                    continue;
+
                 BaseMethodInfo miToAdd = new BaseMethodInfo();
                 miToAdd.Initialize(ctor);
                 Constructors.Add(miToAdd);

@@ -116,26 +116,27 @@ using Moq;");
 
             AppendFormat("private {0} {1};\n", ci.Name, TestObjectVarName);
 
-            foreach (var kvp in ci.Constructors[0]
-                .ParamTypeNamesByParamName)
-            {
-                string varName = kvp.Key.GetPrivateVarName();
-                if (kvp.Value[0] == 'I')
+            if (ci.Constructors.Any())
+                foreach (var kvp in ci.Constructors[0]
+                    .ParamTypeNamesByParamName)
                 {
-                    AppendFormat("private Mock<{0}> {1};\n", kvp.Value, varName);
-                    mockTypesByVarName.Add(new KeyValuePair<string, string>(varName, kvp.Value));
+                    string varName = kvp.Key.GetPrivateVarName();
+                    if (kvp.Value[0] == 'I')
+                    {
+                        AppendFormat("private Mock<{0}> {1};\n", kvp.Value, varName);
+                        mockTypesByVarName.Add(new KeyValuePair<string, string>(varName, kvp.Value));
+                    }
+                    else
+                    {
+                        string fullTypeName = kvp.Value.GetFullTypeName();
+                        System.Type type = System.Type.GetType(fullTypeName);
+                        object defaultValue = type?.GetDefault();
+                        AppendFormat("private {0} {1} = {2};\n",
+                            kvp.Value,
+                            kvp.Key.GetPrivateVarName(),
+                            defaultValue ?? "null");
+                    }
                 }
-                else
-                {
-                    string fullTypeName = kvp.Value.GetFullTypeName();
-                    System.Type type = System.Type.GetType(fullTypeName);
-                    object defaultValue = type?.GetDefault();
-                    AppendFormat("private {0} {1} = {2};\n",
-                        kvp.Value,
-                        kvp.Key.GetPrivateVarName(),
-                        defaultValue ?? "null");
-                }
-            }
             AppendLine();
 
             AppendLine("[SetUp]");
@@ -151,6 +152,9 @@ using Moq;");
 
         private void AddSetUpArrange(ClassInfo ci, List<KeyValuePair<string, string>> mockTypesByVarName)
         {
+            if (!ci.Constructors.Any())
+                return;
+
             foreach (var kvp in mockTypesByVarName)
             {
                 AppendFormat("{0} = new Mock<{1}>();\n", kvp.Key, kvp.Value);

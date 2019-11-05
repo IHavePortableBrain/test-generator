@@ -8,36 +8,20 @@ using TestGenerator.Format;
 
 namespace TestGenerator
 {
-    public class Conveyor
+    public class Conveyor : ITargetBlock<string>, IDataflowBlock, ISourceBlock<FormatFile>
     {
         public readonly int MaxDegreeOfParallelism = Environment.ProcessorCount;
-        public List<string> SavedPathes { get; private set; }
-        private string SaveDir;
 
-        private readonly TransformBlock<string, string> LoadTestableFileBlock;
         private readonly TransformBlock<string, FileInfo> GatherInfoBlock;
         private readonly TransformBlock<FileInfo, FormatFile> GenerateTestClassBlock;
-        private readonly ActionBlock<FormatFile> SaveTestClassFileBlock;
 
-        private readonly Mutex DirectoryWorkMutex = new Mutex();
-
-        private bool _isComplited = false;
-        public Task Complition => SaveTestClassFileBlock.Completion;
+        public Task Completion => GenerateTestClassBlock.Completion;
 
         //TODO: file name is kept in dataflow to tsve result ot file with proper name; result class with file name field
-        public Conveyor(string saveDir)
+        public Conveyor()
         {
-            SaveDir = saveDir;
-            SavedPathes = new List<string>();
             var executionOptions = new ExecutionDataflowBlockOptions { MaxDegreeOfParallelism = MaxDegreeOfParallelism };
             var linkOptions = new DataflowLinkOptions { PropagateCompletion = true };
-
-            LoadTestableFileBlock = new TransformBlock<string, string>(
-                async path =>
-                {
-                    return await ReadFileContent(path);
-                },
-                executionOptions);
 
             GatherInfoBlock = new TransformBlock<string, FileInfo>(
                 async testableFileContent =>
@@ -53,39 +37,13 @@ namespace TestGenerator
                 },
                 executionOptions);
 
-            SaveTestClassFileBlock = new ActionBlock<FormatFile>(
-                async formatTestClassFile =>
-                {
-                    await SaveFile(formatTestClassFile, SaveDir);
-                },
-                executionOptions);
-
-            LoadTestableFileBlock.LinkTo(GatherInfoBlock, linkOptions, fileContent => fileContent.Length > 0);
             GatherInfoBlock.LinkTo(GenerateTestClassBlock, linkOptions, fileInfo =>
                 fileInfo != null && fileInfo.Namespaces.Count > 0);
-            GenerateTestClassBlock.LinkTo(SaveTestClassFileBlock, linkOptions);
         }
 
         public bool Post(string testableFilePath)
         {
-            if (_isComplited)
-                return false;
-            LoadTestableFileBlock.Post(testableFilePath);
-            return true;
-        }
-
-        public void Complete()
-        {
-            LoadTestableFileBlock.Complete();
-            _isComplited = true;
-        }
-
-        private async Task<string> ReadFileContent(string path)
-        {
-            using (var reader = new System.IO.StreamReader(path))
-            {
-                return await reader.ReadToEndAsync(); //QUESTION: why this method await needed for no runtime exception; and next method
-            }
+            return GatherInfoBlock.Post(testableFilePath);
         }
 
         private Task<FormatFile> GenerateTestClassFile(FileInfo fi)
@@ -105,40 +63,39 @@ namespace TestGenerator
             });
         }
 
-        private Task SaveFile(FormatFile ff, string outDir)
+        public DataflowMessageStatus OfferMessage(DataflowMessageHeader messageHeader, string messageValue, ISourceBlock<string> source, bool consumeToAccept)
         {
-            string toSave = ff.Content;
-            string fName = ff.Name + "Tests";
-            int i = 0;
-            string savePath = null;
-
-            DirectoryWorkMutex.WaitOne();//QUESTION: why lock was not working but mutex works?
-
-            savePath = outDir + "\\" + fName + ".cs";
-            if (System.IO.File.Exists(savePath))
-            {
-                do
-                {
-                    savePath = outDir + "\\" + fName + i++ + ".cs";
-                } while (System.IO.File.Exists(savePath));
-            }
-
-            SavedPathes.Add(savePath);
-            Task saveToFileTask = Task.Run(() =>
-            {
-                using (var saveFileStream = new System.IO.StreamWriter(savePath))
-                {
-                    saveFileStream.Write(toSave.ToCharArray(), 0, toSave.Length);
-                }
-            });
-            DirectoryWorkMutex.ReleaseMutex();//QUESTION: am i right that mutex wont be blocked until awaitable task done (if there is any inside critical code)
-
-            return saveToFileTask;
+            return ((ITargetBlock<string>)GatherInfoBlock).OfferMessage(messageHeader, messageValue, source, consumeToAccept);
         }
 
-        public void ClearSavedPathes()
+        public void Fault(Exception exception)
         {
-            SavedPathes.Clear();
+            ((ITargetBlock<string>)GatherInfoBlock).Fault(exception);
+        }
+
+        public IDisposable LinkTo(ITargetBlock<FormatFile> target, DataflowLinkOptions linkOptions)
+        {
+            return GenerateTestClassBlock.LinkTo(target, linkOptions);
+        }
+
+        public FormatFile ConsumeMessage(DataflowMessageHeader messageHeader, ITargetBlock<FormatFile> target, out bool messageConsumed)
+        {
+            return ((ISourceBlock<FormatFile>)GenerateTestClassBlock).ConsumeMessage(messageHeader, target, out messageConsumed);
+        }
+
+        public bool ReserveMessage(DataflowMessageHeader messageHeader, ITargetBlock<FormatFile> target)
+        {
+            return ((ISourceBlock<FormatFile>)GenerateTestClassBlock).ReserveMessage(messageHeader, target);
+        }
+
+        public void ReleaseReservation(DataflowMessageHeader messageHeader, ITargetBlock<FormatFile> target)
+        {
+            ((ISourceBlock<FormatFile>)GenerateTestClassBlock).ReleaseReservation(messageHeader, target);
+        }
+
+        public void Complete()
+        {
+            GatherInfoBlock.Complete();
         }
     }
 }
